@@ -23,3 +23,9 @@ export { getWorkoutFraming, getNightRoutineFraming, getMealModeFraming } from ".
 
 export { deriveInsights } from "./pattern-insights";
 export type { PatternInsight } from "./pattern-insights";
+
+export { applyRecencyWeights, weightedRate, weightedAverage } from "./recency";
+export { getConfidence, getConfidencePrefix, getConfidenceVerb } from "./confidence";
+export { buildRecommendationProfile } from "./adaptive-memory";
+export { generateMemoryInsights, getMemoryAwareFocus } from "./memory-insights";
+export type { MemoryInsight } from "./memory-insights";

@@ -8,6 +8,7 @@ import { RescuePlanCard } from "@/components/dashboard/rescue-plan";
 import { TodaysPlan } from "@/components/dashboard/todays-plan";
 import { FallbackPathCard } from "@/components/dashboard/fallback-path";
 import { MVDBadge } from "@/components/dashboard/mvd-badge";
+import { MemoryCard } from "@/components/dashboard/memory-card";
 import { DailyTargetsStrip } from "@/components/dashboard/daily-targets-strip";
 import { ProgressSnapshot } from "@/components/dashboard/progress-snapshot";
 import { WeeklyRhythmStrip } from "@/components/dashboard/weekly-rhythm-strip";
@@ -33,6 +34,9 @@ export default function HomePage() {
         <TodaysPlan />
         <FallbackPathCard />
         <MVDBadge />
+
+        {/* Memory */}
+        <MemoryCard />
 
         {/* Reference */}
         <DailyTargetsStrip />

@@ -16,10 +16,12 @@ import {
   inferPlanVariant, buildDayPlan, shouldShowRescue, buildRescuePlan,
   evaluateMVD, getMealStrategy, getSupportConfig, trimPlanSteps, trimRescueActions,
   getHomeRecommendation, buildFallbackPath, getWorkoutFraming, getNightRoutineFraming,
-  deriveInsights,
+  deriveInsights, buildRecommendationProfile, generateMemoryInsights,
   type DayPlan, type RescuePlan, type MealSuggestion, type MVDResult,
   type SupportStyleConfig, type HomeRecommendation, type FallbackPath, type PatternInsight,
+  type MemoryInsight,
 } from "@/lib/intelligence";
+import { type RecommendationProfile, EMPTY_PROFILE } from "@/types/recommendation-profile";
 import {
   loadDailyRecordLocal, saveDailyRecordLocal, syncDailyRecord, hydrateDailyRecord,
   loadMoodLocal, saveMoodLocal, syncMood,
@@ -40,7 +42,7 @@ const defaultSettings: AppSettings = {
   animationsEnabled: true, microcopyIntensity: "normal", showEmojis: true,
   adaptiveEnabled: true, checkInEnabled: true,
   showPlan: true, showRescue: true, showMVDMessages: true, mealSuggestions: true,
-  plannerStyle: "balanced",
+  plannerStyle: "balanced", adaptiveMemoryEnabled: true,
 };
 
 interface TrackerState {
@@ -238,6 +240,16 @@ export function useTrackerStore() {
   const nightRoutineFraming = useMemo(() => getNightRoutineFraming(settings.microcopyIntensity, { phase: dayPhase, flowScore, workoutDone: state.workoutDone, nightRoutineDone: summary.nightRoutineDone, nightRoutineTotal: summary.nightRoutineTotal }), [settings.microcopyIntensity, dayPhase, flowScore, state.workoutDone, summary.nightRoutineDone, summary.nightRoutineTotal]);
   const patternInsights: PatternInsight[] = useMemo(() => deriveInsights(hist), [hist]);
 
+  // ── Adaptive Memory (Step 9) ────────────────────────────
+  const profile: RecommendationProfile = useMemo(
+    () => settings.adaptiveMemoryEnabled ? buildRecommendationProfile(hist) : EMPTY_PROFILE,
+    [hist, settings.adaptiveMemoryEnabled]
+  );
+  const memoryInsights: MemoryInsight[] = useMemo(
+    () => settings.adaptiveMemoryEnabled ? generateMemoryInsights(profile, settings.microcopyIntensity) : [],
+    [profile, settings.microcopyIntensity, settings.adaptiveMemoryEnabled]
+  );
+
   // Rewards
   useEffect(() => {
     if (!hydrated) return;
@@ -338,6 +350,7 @@ export function useTrackerStore() {
     dayMode, weeklyRhythm, mood, topFavorites: topFavs,
     dayPlan, rescuePlan, mvd, mealStrategy, isWeekend,
     supportConfig, homeRec, fallbackPath, workoutFraming, nightRoutineFraming, patternInsights,
+    profile, memoryInsights,
     syncStatus, lastSynced,
     rewardToast, dismissRewardToast,
     nextAction, toggleChecklist, toggleMealDone, toggleWorkoutDone, toggleLazyMode,

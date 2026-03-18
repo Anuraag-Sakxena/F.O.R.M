@@ -107,6 +107,7 @@ export interface AppSettings {
   showMVDMessages: boolean;
   mealSuggestions: boolean;
   plannerStyle: PlannerStyle;
+  adaptiveMemoryEnabled: boolean;
 }
 
 export interface DaySummary {

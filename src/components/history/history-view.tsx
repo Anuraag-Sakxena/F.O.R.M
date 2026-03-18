@@ -24,7 +24,7 @@ const listItem: Variants = {
 };
 
 export function HistoryView() {
-  const { historySummaries, date, currentStreak, momentumLevel, patternInsights } = useTracker();
+  const { historySummaries, date, currentStreak, momentumLevel, memoryInsights, profile } = useTracker();
   const [filter, setFilter] = useState<Filter>("all");
 
   const bestStreak = useMemo(() => calculateBestStreak(historySummaries, 60), [historySummaries]);
@@ -71,15 +71,25 @@ export function HistoryView() {
           </div>
         </div>
 
-        {/* Pattern insights */}
-        {patternInsights.length > 0 && (
+        {/* Memory insights */}
+        {memoryInsights.length > 0 && (
           <div className="mb-5 space-y-2">
-            {patternInsights.map((insight, i) => (
-              <div key={i} className="flex items-start gap-2.5 rounded-xl bg-muted/40 px-3.5 py-2.5">
+            <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground/60 px-1 mb-1">
+              What F.O.R.M. has learned
+            </p>
+            {memoryInsights.map((insight, i) => (
+              <div key={i} className="flex items-start gap-2.5 rounded-xl bg-muted/30 border border-border/30 px-3.5 py-2.5">
                 <span className="text-sm shrink-0">{insight.emoji}</span>
-                <p className="text-[11px] text-foreground/70 font-medium leading-relaxed">{insight.text}</p>
+                <p className="text-[11px] text-foreground/65 font-medium leading-relaxed">{insight.text}</p>
               </div>
             ))}
+            {profile.recentTrend !== "insufficient" && profile.strongestAnchor && (
+              <div className="flex items-center gap-2 px-1 pt-1">
+                <span className="text-[10px] text-muted-foreground/50">
+                  Based on {profile.dataPoints} days · Confidence: {profile.overallConfidence}
+                </span>
+              </div>
+            )}
           </div>
         )}
 

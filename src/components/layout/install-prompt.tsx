@@ -11,30 +11,34 @@ export function InstallPrompt() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const dismissed = localStorage.getItem(DISMISS_KEY);
-    if (dismissed) return;
+    try {
+      if (localStorage.getItem(DISMISS_KEY)) return;
+    } catch { return; }
+
     const isStandalone =
       window.matchMedia("(display-mode: standalone)").matches ||
       ("standalone" in window.navigator &&
         (window.navigator as { standalone?: boolean }).standalone === true);
     if (isStandalone) return;
-    const timer = setTimeout(() => setShow(true), 8000);
+
+    // Show after 12 seconds — enough time to experience the app first
+    const timer = setTimeout(() => setShow(true), 12000);
     return () => clearTimeout(timer);
   }, []);
 
   const dismiss = () => {
     setShow(false);
-    localStorage.setItem(DISMISS_KEY, "1");
+    try { localStorage.setItem(DISMISS_KEY, "1"); } catch {}
   };
 
   return (
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ y: 100, opacity: 0 }}
+          initial={{ y: 80, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 100, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          exit={{ y: 80, opacity: 0 }}
+          transition={{ type: "spring", stiffness: 350, damping: 30 }}
           className="fixed bottom-20 left-4 right-4 z-30 mx-auto max-w-lg"
         >
           <div className="rounded-2xl bg-card border border-border/60 shadow-lg p-4 flex items-start gap-3">
@@ -42,12 +46,18 @@ export function InstallPrompt() {
               <Download size={18} className="text-primary" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground">Add F.O.R.M. to Home Screen</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Install for quick access and an app-like experience
+              <p className="text-sm font-semibold text-foreground">
+                Add F.O.R.M. to Home Screen
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                Keep your rhythm one tap away
               </p>
             </div>
-            <button type="button" onClick={dismiss} className="shrink-0 p-1 text-muted-foreground">
+            <button
+              type="button"
+              onClick={dismiss}
+              className="shrink-0 p-1.5 -mr-1 text-muted-foreground/60 rounded-full active:bg-muted"
+            >
               <X size={16} />
             </button>
           </div>
