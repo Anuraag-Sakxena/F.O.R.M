@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #FAFAFE;
+  --color-foreground: #1a1625;
+  --color-card: #ffffff;
+  --color-card-foreground: #1a1625;
+  --color-muted: #f4f2f7;
+  --color-muted-foreground: #78708a;
+  --color-border: #eeeaf4;
+  --color-ring: #c4b5fd;
+
+  --color-primary: #7c3aed;
+  --color-primary-foreground: #ffffff;
+  --color-primary-soft: #ede9fe;
+  --color-primary-muted: #ddd6fe;
+
+  --color-accent-pink: #ec4899;
+  --color-accent-pink-soft: #fce7f3;
+  --color-accent-mint: #10b981;
+  --color-accent-mint-soft: #d1fae5;
+  --color-accent-peach: #f97316;
+  --color-accent-peach-soft: #ffedd5;
+  --color-accent-sky: #0ea5e9;
+  --color-accent-sky-soft: #e0f2fe;
+  --color-accent-rose: #f43f5e;
+  --color-accent-rose-soft: #ffe4e6;
+  --color-accent-lavender: #8b5cf6;
+  --color-accent-lavender-soft: #ede9fe;
+  --color-accent-amber: #f59e0b;
+  --color-accent-amber-soft: #fef3c7;
+
+  --color-success: #10b981;
+  --color-success-soft: #d1fae5;
+  --color-warning: #f59e0b;
+  --color-warning-soft: #fef3c7;
+  --color-danger: #ef4444;
+  --color-danger-soft: #fee2e2;
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 1.75rem;
+  --radius-full: 9999px;
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03);
+  --shadow-glow: 0 0 20px rgba(124, 58, 237, 0.12);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: contain;
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--color-primary-muted);
+  color: var(--color-foreground);
+}
+
+input,
+button,
+textarea {
+  font-family: inherit;
+}
+
+@supports (padding: env(safe-area-inset-bottom)) {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
