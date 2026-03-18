@@ -10,26 +10,19 @@ async function db() {
 }
 
 // ─── Instance ────────────────────────────────────────────────
+// Uses upsert to avoid race conditions between tabs/reloads.
 
 export async function getOrCreateInstance(instanceId: string): Promise<DbAppInstance | null> {
   if (!isSupabaseConfigured) return null;
   const client = await db();
 
-  const { data: existing } = await client
+  const { data } = await client
     .from("app_instances")
-    .select("*")
-    .eq("id", instanceId)
-    .single();
-
-  if (existing) return existing as DbAppInstance;
-
-  const { data: created } = await client
-    .from("app_instances")
-    .insert({ id: instanceId })
+    .upsert({ id: instanceId }, { onConflict: "id" })
     .select()
-    .single();
+    .maybeSingle();
 
-  return (created as DbAppInstance) ?? null;
+  return (data as DbAppInstance) ?? null;
 }
 
 // ─── Daily Records ───────────────────────────────────────────
@@ -42,7 +35,7 @@ export async function fetchDailyRecord(instanceId: string, date: string): Promis
     .select("*")
     .eq("instance_id", instanceId)
     .eq("date", date)
-    .single();
+    .maybeSingle();
   return (data as DbDailyRecord) ?? null;
 }
 
@@ -76,7 +69,7 @@ export async function fetchMood(instanceId: string, date: string): Promise<DbMoo
     .select("*")
     .eq("instance_id", instanceId)
     .eq("date", date)
-    .single();
+    .maybeSingle();
   return (data as DbMoodCheckin) ?? null;
 }
 
@@ -97,7 +90,7 @@ export async function fetchPreferences(instanceId: string): Promise<DbAppPrefere
     .from("app_preferences")
     .select("*")
     .eq("instance_id", instanceId)
-    .single();
+    .maybeSingle();
   return (data as DbAppPreferences) ?? null;
 }
 
@@ -118,7 +111,7 @@ export async function fetchBehaviorMemory(instanceId: string): Promise<DbBehavio
     .from("behavior_memory")
     .select("*")
     .eq("instance_id", instanceId)
-    .single();
+    .maybeSingle();
   return (data as DbBehaviorMemory) ?? null;
 }
 

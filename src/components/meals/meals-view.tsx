@@ -232,10 +232,12 @@ function MealCard({
       className={cn("rounded-2xl overflow-hidden", bg, done && "opacity-60")}
     >
       {/* Header — always visible */}
-      <button
-        type="button"
-        className="flex w-full items-center gap-3 p-4 text-left"
+      <div
+        role="button"
+        tabIndex={0}
+        className="flex w-full items-center gap-3 p-4 text-left cursor-pointer"
         onClick={() => setExpanded((p) => !p)}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded((p) => !p); } }}
       >
         <span className="text-xl">{meal.emoji}</span>
         <div className="flex-1 min-w-0">
@@ -283,7 +285,7 @@ function MealCard({
             <ChevronDown size={16} className="text-muted-foreground" />
           </motion.div>
         </div>
-      </button>
+      </div>
 
       {/* Expandable content */}
       <AnimatePresence>
