@@ -65,7 +65,8 @@ export function dbToPreferences(row: DbAppPreferences): AppSettings {
     showMVDMessages: row.show_mvd_messages,
     mealSuggestions: row.meal_suggestions,
     plannerStyle: row.planner_style as AppSettings["plannerStyle"],
-    adaptiveMemoryEnabled: true, // Not yet in DB schema — defaults to true
+    adaptiveMemoryEnabled: true,
+    currentTrainingWeek: 1,
   };
 }
 

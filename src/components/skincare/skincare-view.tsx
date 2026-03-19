@@ -1,13 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, type Variants } from "framer-motion";
-import { Check } from "lucide-react";
+import { Check, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTracker } from "@/hooks/tracker-context";
 import { AnimatedPage } from "@/components/ui/animated-page";
 import { PageHeader } from "@/components/ui/page-header";
 import { SectionCard } from "@/components/ui/section-card";
+import { FAB } from "@/components/ui/fab";
+import { ActionSheet, type ActionSheetOption } from "@/components/ui/action-sheet";
+import { FormModal, FormInput } from "@/components/ui/form-modal";
 import {
   nightRoutine as nightRoutineData,
   nightRoutineTitle,
@@ -46,12 +49,99 @@ const routineMeta: Record<string, { label: string; emoji: string }> = {
 };
 
 export function SkincareView() {
-  const { skincare, toggleSkincareStep, nightRoutine, toggleNightRoutine, setLastSection } =
-    useTracker();
+  const {
+    skincare,
+    toggleSkincareStep,
+    nightRoutine,
+    toggleNightRoutine,
+    setLastSection,
+    addSkincareStep,
+    editSkincareStep,
+    deleteSkincareStep,
+  } = useTracker();
 
   useEffect(() => {
     setLastSection("skincare");
   }, [setLastSection]);
+
+  // ── Add modal state ────────────────────────────────────────
+  const [addOpen, setAddOpen] = useState(false);
+  const [addProduct, setAddProduct] = useState("");
+  const [addEmoji, setAddEmoji] = useState("🧴");
+  const [addTime, setAddTime] = useState<"morning" | "night">("morning");
+
+  const handleAdd = () => {
+    if (!addProduct.trim()) return;
+    addSkincareStep(addTime, addProduct.trim(), addEmoji.trim() || "🧴");
+    setAddProduct("");
+    setAddEmoji("🧴");
+    setAddOpen(false);
+  };
+
+  // ── Edit modal state ───────────────────────────────────────
+  const [editOpen, setEditOpen] = useState(false);
+  const [editProduct, setEditProduct] = useState("");
+  const [editEmoji, setEditEmoji] = useState("");
+  const [editStepId, setEditStepId] = useState("");
+  const [editTime, setEditTime] = useState<"morning" | "night">("morning");
+
+  const handleEdit = () => {
+    if (!editProduct.trim()) return;
+    editSkincareStep(editTime, editStepId, editProduct.trim(), editEmoji.trim() || "🧴");
+    setEditOpen(false);
+  };
+
+  // ── Action sheet state ─────────────────────────────────────
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetStepId, setSheetStepId] = useState("");
+  const [sheetTime, setSheetTime] = useState<"morning" | "night">("morning");
+  const [sheetProduct, setSheetProduct] = useState("");
+  const [sheetEmoji, setSheetEmoji] = useState("");
+
+  // ── Long press ─────────────────────────────────────────────
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
+
+  const startLongPress = useCallback(
+    (time: "morning" | "night", stepId: string, product: string, emoji: string) => {
+      longPressTriggered.current = false;
+      longPressTimer.current = setTimeout(() => {
+        longPressTriggered.current = true;
+        setSheetTime(time);
+        setSheetStepId(stepId);
+        setSheetProduct(product);
+        setSheetEmoji(emoji);
+        setSheetOpen(true);
+      }, 500);
+    },
+    []
+  );
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+  }, []);
+
+  const sheetOptions: ActionSheetOption[] = [
+    {
+      label: "Edit",
+      icon: <Pencil size={16} />,
+      onPress: () => {
+        setEditTime(sheetTime);
+        setEditStepId(sheetStepId);
+        setEditProduct(sheetProduct);
+        setEditEmoji(sheetEmoji);
+        setEditOpen(true);
+      },
+    },
+    {
+      label: "Delete",
+      icon: <Trash2 size={16} />,
+      destructive: true,
+      onPress: () => {
+        deleteSkincareStep(sheetTime, sheetStepId);
+      },
+    },
+  ];
 
   return (
     <AnimatedPage>
@@ -88,7 +178,15 @@ export function SkincareView() {
                     )}
                     variants={stepItem}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => toggleSkincareStep(routine.time, step.id)}
+                    onClick={() => {
+                      if (longPressTriggered.current) return;
+                      toggleSkincareStep(routine.time, step.id);
+                    }}
+                    onPointerDown={() =>
+                      startLongPress(routine.time, step.id, step.product, step.emoji)
+                    }
+                    onPointerUp={cancelLongPress}
+                    onPointerLeave={cancelLongPress}
                   >
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold text-muted-foreground">
                       {step.step}
@@ -198,6 +296,89 @@ export function SkincareView() {
           </motion.div>
         </SectionCard>
       </div>
+
+      {/* FAB */}
+      <FAB onClick={() => setAddOpen(true)} />
+
+      {/* Add skincare step modal */}
+      <FormModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Add Skincare Step"
+        onSubmit={handleAdd}
+        submitLabel="Add"
+        submitDisabled={!addProduct.trim()}
+      >
+        <div className="space-y-4">
+          <FormInput
+            label="Product"
+            value={addProduct}
+            onChange={setAddProduct}
+            placeholder="e.g. Vitamin C serum"
+          />
+          <FormInput
+            label="Emoji"
+            value={addEmoji}
+            onChange={setAddEmoji}
+            placeholder="🧴"
+          />
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              Routine
+            </label>
+            <div className="flex gap-2">
+              {(["morning", "night"] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setAddTime(t)}
+                  className={cn(
+                    "flex-1 rounded-xl py-2.5 text-sm font-medium transition-colors",
+                    addTime === t
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted/50 text-muted-foreground"
+                  )}
+                >
+                  {t === "morning" ? "☀️ Morning" : "🌙 Night"}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </FormModal>
+
+      {/* Edit skincare step modal */}
+      <FormModal
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        title="Edit Skincare Step"
+        onSubmit={handleEdit}
+        submitLabel="Save"
+        submitDisabled={!editProduct.trim()}
+      >
+        <div className="space-y-4">
+          <FormInput
+            label="Product"
+            value={editProduct}
+            onChange={setEditProduct}
+            placeholder="e.g. Vitamin C serum"
+          />
+          <FormInput
+            label="Emoji"
+            value={editEmoji}
+            onChange={setEditEmoji}
+            placeholder="🧴"
+          />
+        </div>
+      </FormModal>
+
+      {/* Action sheet */}
+      <ActionSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title={sheetProduct}
+        options={sheetOptions}
+      />
     </AnimatedPage>
   );
 }

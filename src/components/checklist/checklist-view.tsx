@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { motion, type Variants } from "framer-motion";
-import { Check } from "lucide-react";
+import { Check, Pencil, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTracker } from "@/hooks/tracker-context";
 import { AnimatedPage } from "@/components/ui/animated-page";
 import { PageHeader } from "@/components/ui/page-header";
+import { FAB } from "@/components/ui/fab";
+import { ActionSheet, type ActionSheetOption } from "@/components/ui/action-sheet";
+import { FormModal, FormInput } from "@/components/ui/form-modal";
 
 const listContainer: Variants = {
   hidden: { opacity: 0 },
@@ -35,12 +38,109 @@ const checkScale: Variants = {
 };
 
 export function ChecklistView() {
-  const { checklist, toggleChecklist, setLastSection } = useTracker();
+  const {
+    checklist,
+    toggleChecklist,
+    setLastSection,
+    addChecklistItem,
+    editChecklistItem,
+    deleteChecklistItem,
+  } = useTracker();
 
   useEffect(() => {
     setLastSection("checklist");
   }, [setLastSection]);
 
+  // ---------- Long-press ----------
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<{
+    id: string;
+    label: string;
+    emoji: string;
+  } | null>(null);
+
+  const clearTimer = useCallback(() => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  }, []);
+
+  const handlePointerDown = useCallback(
+    (item: { id: string; label: string; emoji: string }) => {
+      didLongPress.current = false;
+      pressTimer.current = setTimeout(() => {
+        didLongPress.current = true;
+        setSelectedItem(item);
+        setSheetOpen(true);
+      }, 500);
+    },
+    []
+  );
+
+  const handlePointerUp = useCallback(() => {
+    clearTimer();
+  }, [clearTimer]);
+
+  // ---------- Form modals ----------
+  const [addOpen, setAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [formLabel, setFormLabel] = useState("");
+  const [formEmoji, setFormEmoji] = useState("");
+
+  const openAdd = () => {
+    setFormLabel("");
+    setFormEmoji("");
+    setAddOpen(true);
+  };
+
+  const handleAdd = () => {
+    const label = formLabel.trim();
+    const emoji = formEmoji.trim() || "🎯";
+    if (!label) return;
+    addChecklistItem(label, emoji);
+    setAddOpen(false);
+  };
+
+  const openEdit = () => {
+    if (!selectedItem) return;
+    setFormLabel(selectedItem.label);
+    setFormEmoji(selectedItem.emoji);
+    setEditOpen(true);
+  };
+
+  const handleEdit = () => {
+    if (!selectedItem) return;
+    const label = formLabel.trim();
+    const emoji = formEmoji.trim() || "🎯";
+    if (!label) return;
+    editChecklistItem(selectedItem.id, label, emoji);
+    setEditOpen(false);
+    setSelectedItem(null);
+  };
+
+  // ---------- Action sheet options ----------
+  const sheetOptions: ActionSheetOption[] = [
+    {
+      label: "Edit",
+      icon: <Pencil size={16} />,
+      onPress: openEdit,
+    },
+    {
+      label: "Delete",
+      icon: <Trash2 size={16} />,
+      destructive: true,
+      onPress: () => {
+        if (selectedItem) deleteChecklistItem(selectedItem.id);
+        setSelectedItem(null);
+      },
+    },
+  ];
+
+  // ---------- Derived ----------
   const doneCount = checklist.filter((item) => item.completed).length;
   const total = checklist.length;
   const allDone = total > 0 && doneCount === total;
@@ -87,7 +187,20 @@ export function ChecklistView() {
                 )}
                 whileTap={{ scale: 0.97 }}
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                onClick={() => toggleChecklist(item.id)}
+                onPointerDown={() =>
+                  handlePointerDown({
+                    id: item.id,
+                    label: item.label,
+                    emoji: item.emoji,
+                  })
+                }
+                onPointerUp={() => {
+                  handlePointerUp();
+                  if (!didLongPress.current) {
+                    toggleChecklist(item.id);
+                  }
+                }}
+                onPointerLeave={handlePointerUp}
               >
                 <span
                   className={cn(
@@ -153,6 +266,73 @@ export function ChecklistView() {
           </motion.div>
         )}
       </div>
+
+      {/* FAB */}
+      <FAB onClick={openAdd} />
+
+      {/* Action Sheet */}
+      <ActionSheet
+        open={sheetOpen}
+        onClose={() => {
+          setSheetOpen(false);
+          setSelectedItem(null);
+        }}
+        title={selectedItem?.label}
+        options={sheetOptions}
+      />
+
+      {/* Add Modal */}
+      <FormModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="New Goal"
+        onSubmit={handleAdd}
+        submitLabel="Add"
+        submitDisabled={!formLabel.trim()}
+      >
+        <div className="space-y-3">
+          <FormInput
+            label="Label"
+            value={formLabel}
+            onChange={setFormLabel}
+            placeholder="e.g. Drink 2L water"
+          />
+          <FormInput
+            label="Emoji"
+            value={formEmoji}
+            onChange={setFormEmoji}
+            placeholder="🎯"
+          />
+        </div>
+      </FormModal>
+
+      {/* Edit Modal */}
+      <FormModal
+        open={editOpen}
+        onClose={() => {
+          setEditOpen(false);
+          setSelectedItem(null);
+        }}
+        title="Edit Goal"
+        onSubmit={handleEdit}
+        submitLabel="Save"
+        submitDisabled={!formLabel.trim()}
+      >
+        <div className="space-y-3">
+          <FormInput
+            label="Label"
+            value={formLabel}
+            onChange={setFormLabel}
+            placeholder="e.g. Drink 2L water"
+          />
+          <FormInput
+            label="Emoji"
+            value={formEmoji}
+            onChange={setFormEmoji}
+            placeholder="🎯"
+          />
+        </div>
+      </FormModal>
     </AnimatedPage>
   );
 }

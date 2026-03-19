@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Check, ChevronDown, Flame, UtensilsCrossed } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -35,8 +35,17 @@ const mealEmojis: Record<string, string> = {
 };
 
 export function MealsView() {
-  const { mealsDone, toggleMealDone, lazyMode, toggleLazyMode, todayDayName, setLastSection, mealStrategy } =
-    useTracker();
+  const {
+    mealsDone,
+    toggleMealDone,
+    lazyMode,
+    toggleLazyMode,
+    todayDayName,
+    setLastSection,
+    mealStrategy,
+    lazySelections,
+    setLazySelection,
+  } = useTracker();
 
   useEffect(() => {
     setLastSection("meals");
@@ -149,29 +158,74 @@ export function MealsView() {
               </div>
 
               {/* Lazy meal categories */}
-              {lazyMeals.map((cat) => (
-                <div key={cat.meal} className="space-y-2">
-                  <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <span>{cat.emoji}</span>
-                    {cat.meal}
-                  </h3>
-                  <div className="space-y-1.5">
-                    {cat.options.map((opt, i) => (
-                      <div
-                        key={i}
-                        className="rounded-xl bg-card border border-border/60 p-3"
-                      >
-                        <p className="text-xs font-semibold text-foreground">
-                          {opt.place}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {opt.order}
-                        </p>
-                      </div>
-                    ))}
+              {lazyMeals.map((cat) => {
+                const currentSelection = lazySelections[cat.meal] ?? null;
+                return (
+                  <div key={cat.meal} className="space-y-2">
+                    <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                      <span>{cat.emoji}</span>
+                      {cat.meal}
+                    </h3>
+                    <div className="space-y-1.5">
+                      {cat.options.map((opt, i) => {
+                        const isSelected = currentSelection === i;
+                        return (
+                          <motion.div
+                            key={i}
+                            role="button"
+                            tabIndex={0}
+                            className={cn(
+                              "rounded-xl bg-card border p-3 cursor-pointer transition-all",
+                              isSelected
+                                ? "ring-2 ring-primary bg-primary-soft/20 border-primary/30"
+                                : "border-border/60 hover:bg-muted/30"
+                            )}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() =>
+                              setLazySelection(cat.meal, isSelected ? null : i)
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setLazySelection(cat.meal, isSelected ? null : i);
+                              }
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-foreground">
+                                  {opt.place}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                  {opt.order}
+                                </p>
+                              </div>
+                              {isSelected && (
+                                <motion.div
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  transition={{
+                                    type: "spring",
+                                    stiffness: 500,
+                                    damping: 25,
+                                  }}
+                                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary"
+                                >
+                                  <Check
+                                    size={10}
+                                    strokeWidth={3}
+                                    className="text-primary-foreground"
+                                  />
+                                </motion.div>
+                              )}
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* Note */}
               <p className="text-[11px] text-muted-foreground italic text-center pt-2">
@@ -237,7 +291,12 @@ function MealCard({
         tabIndex={0}
         className="flex w-full items-center gap-3 p-4 text-left cursor-pointer"
         onClick={() => setExpanded((p) => !p)}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setExpanded((p) => !p); } }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded((p) => !p);
+          }
+        }}
       >
         <span className="text-xl">{meal.emoji}</span>
         <div className="flex-1 min-w-0">

@@ -29,10 +29,11 @@ import {
   loadBehaviorLocal, saveBehaviorLocal, syncBehavior,
   loadHistoryIndex, getSyncStatus, getLastSynced, onSyncChange, type SyncStatus,
 } from "@/lib/persistence/repository";
-import { KEYS, getItem } from "@/lib/persistence/storage";
+import { getItem, setItem } from "@/lib/persistence/storage";
 import type {
   ChecklistItem, GroceryCategory, SkincareRoutine, NightRoutineItem,
   MealsDoneMap, AppSettings, DaySummary, DayPhase, SectionId,
+  LazySelections, WaterIntake, Recipe,
 } from "@/types";
 import type { DailyRecordDomain } from "@/lib/supabase/mappers";
 
@@ -42,8 +43,10 @@ const defaultSettings: AppSettings = {
   animationsEnabled: true, microcopyIntensity: "normal", showEmojis: true,
   adaptiveEnabled: true, checkInEnabled: true,
   showPlan: true, showRescue: true, showMVDMessages: true, mealSuggestions: true,
-  plannerStyle: "balanced", adaptiveMemoryEnabled: true,
+  plannerStyle: "balanced", adaptiveMemoryEnabled: true, currentTrainingWeek: 1,
 };
+
+const CUSTOM_RECIPES_KEY = "form-custom-recipes";
 
 interface TrackerState {
   date: string;
@@ -54,24 +57,33 @@ interface TrackerState {
   skincare: SkincareRoutine[];
   nightRoutine: NightRoutineItem[];
   lazyMode: boolean;
+  lazySelections: LazySelections;
+  waterIntake: WaterIntake;
 }
 
 function createNR(): NightRoutineItem[] { return nightRoutine.map((e) => ({ id: e.id, done: false })); }
 
 function freshState(date: string): TrackerState {
-  return { date, checklist: getDefaultChecklist(), mealsDone: {}, workoutDone: false,
-    groceries: getDefaultGroceries(), skincare: getDefaultSkincare(), nightRoutine: createNR(), lazyMode: false };
+  return {
+    date, checklist: getDefaultChecklist(), mealsDone: {}, workoutDone: false,
+    groceries: getDefaultGroceries(), skincare: getDefaultSkincare(), nightRoutine: createNR(),
+    lazyMode: false, lazySelections: {}, waterIntake: { amount: 0, target: 3000 },
+  };
 }
 
 function stateToDomain(s: TrackerState): DailyRecordDomain {
-  return { date: s.date, checklist: s.checklist, mealsDone: s.mealsDone, workoutDone: s.workoutDone,
+  return {
+    date: s.date, checklist: s.checklist, mealsDone: s.mealsDone, workoutDone: s.workoutDone,
     lazyMode: s.lazyMode, skincare: s.skincare, nightRoutine: s.nightRoutine, groceries: s.groceries,
-    updatedAt: new Date().toISOString() };
+    updatedAt: new Date().toISOString(),
+  };
 }
 
-function domainToState(d: DailyRecordDomain): TrackerState {
-  return { date: d.date, checklist: d.checklist, mealsDone: d.mealsDone, workoutDone: d.workoutDone,
-    lazyMode: d.lazyMode, skincare: d.skincare, nightRoutine: d.nightRoutine, groceries: d.groceries };
+function domainToState(d: DailyRecordDomain): Partial<TrackerState> {
+  return {
+    date: d.date, checklist: d.checklist, mealsDone: d.mealsDone, workoutDone: d.workoutDone,
+    lazyMode: d.lazyMode, skincare: d.skincare, nightRoutine: d.nightRoutine, groceries: d.groceries,
+  };
 }
 
 function loadLocal(date: string): TrackerState {
@@ -92,19 +104,20 @@ function buildSum(s: TrackerState): DaySummary {
   const nrd = s.nightRoutine.filter((i) => i.done).length; const nrt = s.nightRoutine.length;
   const tot = ct + 1 + 3 + smt + snt + nrt;
   const done = cd + (s.workoutDone ? 1 : 0) + md + smd + snd + nrd;
-  return { date: s.date, checklistDone: cd, checklistTotal: ct, workoutDone: s.workoutDone,
+  return {
+    date: s.date, checklistDone: cd, checklistTotal: ct, workoutDone: s.workoutDone,
     mealsDone: md, mealsTotal: 3, skincareMorningDone: smd, skincareMorningTotal: smt,
     skincareNightDone: snd, skincareNightTotal: snt, nightRoutineDone: nrd, nightRoutineTotal: nrt,
-    completionPercent: tot > 0 ? Math.round((done / tot) * 100) : 0 };
+    completionPercent: tot > 0 ? Math.round((done / tot) * 100) : 0,
+    waterAmount: s.waterIntake.amount,
+  };
 }
 
 function loadHist(): DaySummary[] {
-  const dates = loadHistoryIndex();
-  return dates.map((d) => {
+  return loadHistoryIndex().map((d) => {
     const saved = loadDailyRecordLocal(d);
     if (!saved) return null;
-    const s = { ...freshState(d), ...domainToState(saved) };
-    return buildSum(s);
+    return buildSum({ ...freshState(d), ...domainToState(saved) });
   }).filter(Boolean) as DaySummary[];
 }
 
@@ -124,64 +137,58 @@ export function useTrackerStore() {
   const [mood, setMoodState] = useState<MoodEntry | null>(null);
   const [syncStatus, setSyncStatusLocal] = useState<SyncStatus>(getSyncStatus());
   const [lastSynced, setLastSyncedLocal] = useState<Date | null>(getLastSynced());
+  const [customRecipes, setCustomRecipes] = useState<Recipe[]>([]);
   const prevFS = useRef<number>(0);
 
   // ── Hydration ────────────────────────────────────────────
   useEffect(() => {
     const date = getTrackerDate();
-
-    // 1. Load from localStorage immediately (fast)
     const localState = loadLocal(date);
     setState(localState);
     const localPrefs = loadPreferencesLocal();
-    if (localPrefs) setSettings(localPrefs);
+    if (localPrefs) setSettings({ ...defaultSettings, ...localPrefs });
     const behavior = loadBehaviorLocal();
     setLastSec(behavior.lastSection);
     setFavorites(behavior.favoriteCounts);
     setRhythm(behavior.rhythmData);
     setMoodState(loadMoodLocal(date));
+    setCustomRecipes(getItem<Recipe[]>(CUSTOM_RECIPES_KEY, []));
     setDayPhase(getDayPhase());
     setHydrated(true);
 
-    // 2. Hydrate from Supabase in background (if configured)
     (async () => {
       try {
         const remoteRecord = await hydrateDailyRecord(date, stateToDomain(localState));
-        setState({ ...freshState(date), ...domainToState(remoteRecord) });
+        setState((prev) => ({ ...prev, ...domainToState(remoteRecord) }));
         const remotePrefs = await hydratePreferences(localPrefs ?? defaultSettings);
-        setSettings(remotePrefs);
-      } catch {
-        // Supabase unavailable — stay local
-      }
+        setSettings({ ...defaultSettings, ...remotePrefs });
+      } catch {}
       setSyncStatusLocal(getSyncStatus());
       setLastSyncedLocal(getLastSynced());
     })();
   }, []);
 
-  // Listen to sync status changes
-  useEffect(() => {
-    return onSyncChange(() => {
-      setSyncStatusLocal(getSyncStatus());
-      setLastSyncedLocal(getLastSynced());
-    });
-  }, []);
+  useEffect(() => { return onSyncChange(() => { setSyncStatusLocal(getSyncStatus()); setLastSyncedLocal(getLastSynced()); }); }, []);
 
-  // ── Persist on state change ──────────────────────────────
+  // ── Persist ──────────────────────────────────────────────
   useEffect(() => {
     if (!hydrated) return;
     const domain = stateToDomain(state);
     saveDailyRecordLocal(domain);
-    syncDailyRecord(domain); // async, fire-and-forget
+    syncDailyRecord(domain);
   }, [state, hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
-    const memory = { lastSection, favoriteCounts: favorites, rhythmData: rhythm };
-    saveBehaviorLocal(memory);
-    syncBehavior(memory);
+    saveBehaviorLocal({ lastSection, favoriteCounts: favorites, rhythmData: rhythm });
+    syncBehavior({ lastSection, favoriteCounts: favorites, rhythmData: rhythm });
   }, [lastSection, favorites, rhythm, hydrated]);
 
-  // Day/phase polling
+  useEffect(() => {
+    if (!hydrated) return;
+    setItem(CUSTOM_RECIPES_KEY, customRecipes);
+  }, [customRecipes, hydrated]);
+
   useEffect(() => {
     const iv = setInterval(() => {
       const d = getTrackerDate();
@@ -191,7 +198,7 @@ export function useTrackerStore() {
     return () => clearInterval(iv);
   }, [state.date]);
 
-  // ── Derived intelligence (unchanged from Step 7) ─────────
+  // ── Derived intelligence ─────────────────────────────────
   const summary = useMemo(() => buildSum(state), [state]);
   const todayDay = useMemo(() => dayKey(state.date), [state.date]);
   const hist = useMemo(() => hydrated ? loadHist() : [], [hydrated, state]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -206,27 +213,9 @@ export function useTrackerStore() {
   const topFavs = useMemo(() => getTopFavorites(favorites), [favorites]);
   const isWeekend = useMemo(() => { const d = new Date().getDay(); return d === 0 || d === 6; }, []);
   const dayMode: DayModeInfo = useMemo(() => inferDayMode(dayPhase, flowScore, recovery, momentum, mood?.level ?? null), [dayPhase, flowScore, recovery, momentum, mood]);
-
-  const heroMessage = useMemo(() => {
-    if (recovery.active) return getRecoveryCopy(recovery.reason, settings.microcopyIntensity);
-    return getExpandedHero(dayPhase, flowScore, settings.microcopyIntensity, mood?.level === 1);
-  }, [recovery, dayPhase, flowScore, settings.microcopyIntensity, mood]);
-
-  const focusMessage = useMemo(() => {
-    const p = state.checklist.find((i) => i.id === "protein");
-    return getFocusCopy(dayPhase, settings.microcopyIntensity, {
-      recoveryActive: recovery.active, workoutDone: state.workoutDone, mealsLow: mealsDone < 2,
-      proteinSkipped: p ? !p.completed : false, moodLow: mood?.level === 1,
-    });
-  }, [dayPhase, settings.microcopyIntensity, recovery, state.workoutDone, mealsDone, state.checklist, mood]);
-
-  const weeklyRhythm = useMemo(() => {
-    const today = new Date(); const days: { date: string; dayShort: string; score: number | null; isToday: boolean }[] = [];
-    for (let i = 6; i >= 0; i--) { const d = new Date(today); d.setDate(d.getDate() - i); const ds = d.toISOString().split("T")[0];
-      const found = hist.find((s) => s.date === ds); days.push({ date: ds, dayShort: d.toLocaleDateString("en-US", { weekday: "narrow" }), score: found ? calculateFlowScore(found) : null, isToday: ds === state.date }); }
-    return days;
-  }, [hist, state.date]);
-
+  const heroMessage = useMemo(() => recovery.active ? getRecoveryCopy(recovery.reason, settings.microcopyIntensity) : getExpandedHero(dayPhase, flowScore, settings.microcopyIntensity, mood?.level === 1), [recovery, dayPhase, flowScore, settings.microcopyIntensity, mood]);
+  const focusMessage = useMemo(() => { const p = state.checklist.find((i) => i.id === "protein"); return getFocusCopy(dayPhase, settings.microcopyIntensity, { recoveryActive: recovery.active, workoutDone: state.workoutDone, mealsLow: mealsDone < 2, proteinSkipped: p ? !p.completed : false, moodLow: mood?.level === 1 }); }, [dayPhase, settings.microcopyIntensity, recovery, state.workoutDone, mealsDone, state.checklist, mood]);
+  const weeklyRhythm = useMemo(() => { const today = new Date(); const days: { date: string; dayShort: string; score: number | null; isToday: boolean }[] = []; for (let i = 6; i >= 0; i--) { const d = new Date(today); d.setDate(d.getDate() - i); const ds = d.toISOString().split("T")[0]; const found = hist.find((s) => s.date === ds); days.push({ date: ds, dayShort: d.toLocaleDateString("en-US", { weekday: "narrow" }), score: found ? calculateFlowScore(found) : null, isToday: ds === state.date }); } return days; }, [hist, state.date]);
   const supportConfig: SupportStyleConfig = useMemo(() => getSupportConfig(settings.plannerStyle), [settings.plannerStyle]);
   const planVariant = useMemo(() => inferPlanVariant(dayPhase, flowScore, recovery, momentum, mood?.level ?? null, isWeekend, dayMode.mode), [dayPhase, flowScore, recovery, momentum, mood, isWeekend, dayMode.mode]);
   const dayPlan: DayPlan = useMemo(() => trimPlanSteps(buildDayPlan(planVariant, settings.microcopyIntensity, { phase: dayPhase, workoutDone: state.workoutDone, mealsDone, lazyMode: state.lazyMode, isWeekend }), supportConfig), [planVariant, settings.microcopyIntensity, dayPhase, state.workoutDone, mealsDone, state.lazyMode, isWeekend, supportConfig]);
@@ -239,87 +228,126 @@ export function useTrackerStore() {
   const workoutFraming = useMemo(() => getWorkoutFraming(settings.microcopyIntensity, { phase: dayPhase, workoutDone: state.workoutDone, recoveryActive: recovery.active, moodLevel: mood?.level ?? null, dayMode: dayMode.mode, flowScore }), [settings.microcopyIntensity, dayPhase, state.workoutDone, recovery, mood, dayMode.mode, flowScore]);
   const nightRoutineFraming = useMemo(() => getNightRoutineFraming(settings.microcopyIntensity, { phase: dayPhase, flowScore, workoutDone: state.workoutDone, nightRoutineDone: summary.nightRoutineDone, nightRoutineTotal: summary.nightRoutineTotal }), [settings.microcopyIntensity, dayPhase, flowScore, state.workoutDone, summary.nightRoutineDone, summary.nightRoutineTotal]);
   const patternInsights: PatternInsight[] = useMemo(() => deriveInsights(hist), [hist]);
-
-  // ── Adaptive Memory (Step 9) ────────────────────────────
-  const profile: RecommendationProfile = useMemo(
-    () => settings.adaptiveMemoryEnabled ? buildRecommendationProfile(hist) : EMPTY_PROFILE,
-    [hist, settings.adaptiveMemoryEnabled]
-  );
-  const memoryInsights: MemoryInsight[] = useMemo(
-    () => settings.adaptiveMemoryEnabled ? generateMemoryInsights(profile, settings.microcopyIntensity) : [],
-    [profile, settings.microcopyIntensity, settings.adaptiveMemoryEnabled]
-  );
+  const profile: RecommendationProfile = useMemo(() => settings.adaptiveMemoryEnabled ? buildRecommendationProfile(hist) : EMPTY_PROFILE, [hist, settings.adaptiveMemoryEnabled]);
+  const memoryInsights: MemoryInsight[] = useMemo(() => settings.adaptiveMemoryEnabled ? generateMemoryInsights(profile, settings.microcopyIntensity) : [], [profile, settings.microcopyIntensity, settings.adaptiveMemoryEnabled]);
 
   // Rewards
-  useEffect(() => {
-    if (!hydrated) return;
-    const tier = getRewardTier(prevFS.current, flowScore, 100);
-    if (tier) setRewardToast(getRewardCopy(tier, settings.microcopyIntensity));
-    prevFS.current = flowScore;
-  }, [flowScore, hydrated, settings.microcopyIntensity]);
-
+  useEffect(() => { if (!hydrated) return; const tier = getRewardTier(prevFS.current, flowScore, 100); if (tier) setRewardToast(getRewardCopy(tier, settings.microcopyIntensity)); prevFS.current = flowScore; }, [flowScore, hydrated, settings.microcopyIntensity]);
   const dismissRewardToast = useCallback(() => setRewardToast(null), []);
 
-  // ── Actions ─────────────────────────────────────────────
+  // ── Existing Actions ─────────────────────────────────────
   const toggleChecklist = useCallback((id: string) => {
     setState((p) => { const u = p.checklist.map((i) => i.id === id ? { ...i, completed: !i.completed } : i); if (u.find((i) => i.id === id)?.completed) setRhythm((r) => recordTaskCompletion(r, id)); return { ...p, checklist: u }; });
   }, []);
-
   const toggleMealDone = useCallback((dn: string, m: "breakfast" | "lunch" | "dinner") => {
     setState((p) => { const c = p.mealsDone[dn] ?? { breakfast: false, lunch: false, dinner: false }; const v = !c[m]; if (v) setRhythm((r) => recordTaskCompletion(r, `meal-${m}`)); return { ...p, mealsDone: { ...p.mealsDone, [dn]: { ...c, [m]: v } } }; });
   }, []);
-
   const toggleWorkoutDone = useCallback(() => {
     setState((p) => { if (!p.workoutDone) setRhythm((r) => recordTaskCompletion(r, "workout")); return { ...p, workoutDone: !p.workoutDone }; });
   }, []);
-
   const toggleLazyMode = useCallback(() => setState((p) => ({ ...p, lazyMode: !p.lazyMode })), []);
-
   const toggleGroceryItem = useCallback((cid: string, iid: string) => {
     setState((p) => ({ ...p, groceries: p.groceries.map((c) => c.id === cid ? { ...c, items: c.items.map((i) => i.id === iid ? { ...i, checked: !i.checked } : i) } : c) }));
   }, []);
-
   const toggleSkincareStep = useCallback((t: "morning" | "night", sid: string) => {
     setState((p) => ({ ...p, skincare: p.skincare.map((r) => r.time === t ? { ...r, steps: r.steps.map((s) => s.id === sid ? { ...s, done: !s.done } : s) } : r) }));
   }, []);
-
   const toggleNightRoutine = useCallback((id: string) => {
     setState((p) => { const u = p.nightRoutine.map((i) => i.id === id ? { ...i, done: !i.done } : i); if (u.find((i) => i.id === id)?.done) setRhythm((r) => recordTaskCompletion(r, `nr-${id}`)); return { ...p, nightRoutine: u }; });
   }, []);
+  const setLastSection = useCallback((id: SectionId) => { setLastSec(id); setFavorites((p) => recordSectionVisit(p, id)); }, []);
+  const setMood = useCallback((level: MoodLevel) => { const e: MoodEntry = { level, timestamp: Date.now() }; setMoodState(e); saveMoodLocal(state.date, e); syncMood(state.date, level); }, [state.date]);
+  const updateSettings = useCallback((patch: Partial<AppSettings>) => { setSettings((p) => { const n = { ...p, ...patch }; savePreferencesLocal(n); syncPreferences(n); return n; }); }, []);
+  const clearAllData = useCallback(() => { if (typeof window === "undefined") return; Object.keys(localStorage).filter((k) => k.startsWith("pixie-") || k.startsWith("form-")).forEach((k) => localStorage.removeItem(k)); setState(freshState(getTrackerDate())); setSettings(defaultSettings); setCustomRecipes([]); }, []);
 
-  const setLastSection = useCallback((id: SectionId) => {
-    setLastSec(id);
-    setFavorites((p) => recordSectionVisit(p, id));
+  // ── Water Intake Actions ─────────────────────────────────
+  const addWater = useCallback((ml: number) => {
+    setState((p) => ({ ...p, waterIntake: { ...p.waterIntake, amount: Math.min(p.waterIntake.amount + ml, 5000) } }));
+  }, []);
+  const setWaterAmount = useCallback((ml: number) => {
+    setState((p) => ({ ...p, waterIntake: { ...p.waterIntake, amount: Math.max(0, Math.min(ml, 5000)) } }));
   }, []);
 
-  const setMood = useCallback((level: MoodLevel) => {
-    const e: MoodEntry = { level, timestamp: Date.now() };
-    setMoodState(e);
-    saveMoodLocal(state.date, e);
-    syncMood(state.date, level);
-  }, [state.date]);
-
-  const updateSettings = useCallback((patch: Partial<AppSettings>) => {
-    setSettings((p) => {
-      const n = { ...p, ...patch };
-      savePreferencesLocal(n);
-      syncPreferences(n);
-      return n;
-    });
+  // ── Lazy Day Selection Actions ───────────────────────────
+  const setLazySelection = useCallback((category: string, index: number | null) => {
+    setState((p) => ({ ...p, lazySelections: { ...p.lazySelections, [category]: index } }));
   }, []);
 
-  const clearAllData = useCallback(() => {
-    if (typeof window === "undefined") return;
-    const keys = Object.keys(localStorage).filter((k) =>
-      k.startsWith("pixie-") || k.startsWith("form-")
-    );
-    keys.forEach((k) => localStorage.removeItem(k));
-    setState(freshState(getTrackerDate()));
-    setSettings(defaultSettings);
-    setLastSec(null);
-    setFavorites({ counts: {} });
-    setRhythm({ taskCompletionCounts: {}, taskSkipCounts: {}, lastOpenPhase: null, totalDaysTracked: 0 });
-    setMoodState(null);
+  // ── Checklist CRUD ───────────────────────────────────────
+  const addChecklistItem = useCallback((label: string, emoji: string) => {
+    setState((p) => ({
+      ...p,
+      checklist: [...p.checklist, { id: `custom-${Date.now()}`, label, emoji, completed: false, isCustom: true }],
+    }));
+  }, []);
+  const editChecklistItem = useCallback((id: string, label: string, emoji: string) => {
+    setState((p) => ({ ...p, checklist: p.checklist.map((i) => i.id === id ? { ...i, label, emoji } : i) }));
+  }, []);
+  const deleteChecklistItem = useCallback((id: string) => {
+    setState((p) => ({ ...p, checklist: p.checklist.filter((i) => i.id !== id) }));
+  }, []);
+
+  // ── Grocery CRUD ─────────────────────────────────────────
+  const addGroceryItem = useCallback((categoryId: string, name: string) => {
+    setState((p) => ({
+      ...p,
+      groceries: p.groceries.map((c) => c.id === categoryId
+        ? { ...c, items: [...c.items, { id: `gi-${Date.now()}`, name, checked: false, isCustom: true }] }
+        : c),
+    }));
+  }, []);
+  const editGroceryItem = useCallback((categoryId: string, itemId: string, name: string) => {
+    setState((p) => ({
+      ...p,
+      groceries: p.groceries.map((c) => c.id === categoryId
+        ? { ...c, items: c.items.map((i) => i.id === itemId ? { ...i, name } : i) }
+        : c),
+    }));
+  }, []);
+  const deleteGroceryItem = useCallback((categoryId: string, itemId: string) => {
+    setState((p) => ({
+      ...p,
+      groceries: p.groceries.map((c) => c.id === categoryId
+        ? { ...c, items: c.items.filter((i) => i.id !== itemId) }
+        : c),
+    }));
+  }, []);
+
+  // ── Skincare CRUD ────────────────────────────────────────
+  const addSkincareStep = useCallback((time: "morning" | "night", product: string, emoji: string) => {
+    setState((p) => ({
+      ...p,
+      skincare: p.skincare.map((r) => r.time === time
+        ? { ...r, steps: [...r.steps, { id: `sk-${Date.now()}`, step: r.steps.length + 1, product, emoji, done: false, isCustom: true }] }
+        : r),
+    }));
+  }, []);
+  const editSkincareStep = useCallback((time: "morning" | "night", stepId: string, product: string, emoji: string) => {
+    setState((p) => ({
+      ...p,
+      skincare: p.skincare.map((r) => r.time === time
+        ? { ...r, steps: r.steps.map((s) => s.id === stepId ? { ...s, product, emoji } : s) }
+        : r),
+    }));
+  }, []);
+  const deleteSkincareStep = useCallback((time: "morning" | "night", stepId: string) => {
+    setState((p) => ({
+      ...p,
+      skincare: p.skincare.map((r) => r.time === time
+        ? { ...r, steps: r.steps.filter((s) => s.id !== stepId).map((s, i) => ({ ...s, step: i + 1 })) }
+        : r),
+    }));
+  }, []);
+
+  // ── Custom Recipes CRUD ──────────────────────────────────
+  const addCustomRecipe = useCallback((recipe: Omit<Recipe, "id" | "isCustom">) => {
+    setCustomRecipes((p) => [...p, { ...recipe, id: `recipe-${Date.now()}`, isCustom: true }]);
+  }, []);
+  const editCustomRecipe = useCallback((id: string, patch: Partial<Recipe>) => {
+    setCustomRecipes((p) => p.map((r) => r.id === id ? { ...r, ...patch } : r));
+  }, []);
+  const deleteCustomRecipe = useCallback((id: string) => {
+    setCustomRecipes((p) => p.filter((r) => r.id !== id));
   }, []);
 
   // Smart nudges
@@ -350,11 +378,17 @@ export function useTrackerStore() {
     dayMode, weeklyRhythm, mood, topFavorites: topFavs,
     dayPlan, rescuePlan, mvd, mealStrategy, isWeekend,
     supportConfig, homeRec, fallbackPath, workoutFraming, nightRoutineFraming, patternInsights,
-    profile, memoryInsights,
+    profile, memoryInsights, customRecipes,
     syncStatus, lastSynced,
     rewardToast, dismissRewardToast,
     nextAction, toggleChecklist, toggleMealDone, toggleWorkoutDone, toggleLazyMode,
     toggleGroceryItem, toggleSkincareStep, toggleNightRoutine, setLastSection,
     setMood, updateSettings, clearAllData,
+    // New actions
+    addWater, setWaterAmount, setLazySelection,
+    addChecklistItem, editChecklistItem, deleteChecklistItem,
+    addGroceryItem, editGroceryItem, deleteGroceryItem,
+    addSkincareStep, editSkincareStep, deleteSkincareStep,
+    addCustomRecipe, editCustomRecipe, deleteCustomRecipe,
   };
 }

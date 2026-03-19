@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useTracker } from "@/hooks/tracker-context";
 
 export function ProgressSnapshot() {
-  const { checklistDone, checklistTotal, todayMealsDone, workoutDone, skincare, nightRoutine } =
+  const { checklistDone, checklistTotal, todayMealsDone, workoutDone, skincare, nightRoutine, waterIntake } =
     useTracker();
 
   const skincareDone = skincare.reduce(
@@ -45,6 +45,11 @@ export function ProgressSnapshot() {
       emoji: "🌙",
       text: `${nrDone}/${nrTotal}`,
       complete: nrTotal > 0 && nrDone === nrTotal,
+    },
+    {
+      emoji: "💧",
+      text: `${(waterIntake.amount / 1000).toFixed(1)}L`,
+      complete: waterIntake.amount >= waterIntake.target,
     },
   ];
 

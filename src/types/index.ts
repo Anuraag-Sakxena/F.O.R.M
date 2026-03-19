@@ -3,6 +3,7 @@ export interface ChecklistItem {
   label: string;
   emoji: string;
   completed: boolean;
+  isCustom?: boolean;
 }
 
 export interface MealEntry {
@@ -34,6 +35,7 @@ export interface GroceryItem {
   id: string;
   name: string;
   checked: boolean;
+  isCustom?: boolean;
 }
 
 export interface GroceryCategory {
@@ -49,6 +51,7 @@ export interface SkincareStep {
   product: string;
   emoji: string;
   done: boolean;
+  isCustom?: boolean;
 }
 
 export interface SkincareRoutine {
@@ -69,6 +72,7 @@ export interface Recipe {
   emoji: string;
   ingredients: string[];
   steps: string[];
+  isCustom?: boolean;
 }
 
 export interface MealsDoneMap {
@@ -77,6 +81,17 @@ export interface MealsDoneMap {
     lunch: boolean;
     dinner: boolean;
   };
+}
+
+// Lazy day: which pickup option was chosen per meal category
+export interface LazySelections {
+  [mealCategory: string]: number | null;
+}
+
+// Water intake for the day
+export interface WaterIntake {
+  amount: number; // mL
+  target: number; // default 3000
 }
 
 export interface DayRecord {
@@ -88,6 +103,8 @@ export interface DayRecord {
   skincare: SkincareRoutine[];
   nightRoutine: NightRoutineItem[];
   lazyMode: boolean;
+  lazySelections?: LazySelections;
+  waterIntake?: WaterIntake;
 }
 
 export type DayPhase = "morning" | "afternoon" | "evening" | "night";
@@ -108,6 +125,7 @@ export interface AppSettings {
   mealSuggestions: boolean;
   plannerStyle: PlannerStyle;
   adaptiveMemoryEnabled: boolean;
+  currentTrainingWeek: number;
 }
 
 export interface DaySummary {
@@ -124,6 +142,7 @@ export interface DaySummary {
   nightRoutineDone: number;
   nightRoutineTotal: number;
   completionPercent: number;
+  waterAmount?: number;
 }
 
 export type SectionId =

@@ -17,6 +17,7 @@ import { WeeklyReflection } from "@/components/dashboard/weekly-reflection";
 import { FavoriteActions } from "@/components/dashboard/favorite-actions";
 import { ContinueCard } from "@/components/dashboard/continue-card";
 import { QuickActionsGrid } from "@/components/dashboard/quick-actions-grid";
+import { WaterCard } from "@/components/dashboard/water-card";
 
 export default function HomePage() {
   return (
@@ -40,6 +41,9 @@ export default function HomePage() {
 
         {/* Reference */}
         <DailyTargetsStrip />
+
+        {/* Water */}
+        <WaterCard />
 
         {/* Status */}
         <ProgressSnapshot />
