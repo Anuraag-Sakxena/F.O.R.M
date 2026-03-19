@@ -75,6 +75,7 @@ function stateToDomain(s: TrackerState): DailyRecordDomain {
   return {
     date: s.date, checklist: s.checklist, mealsDone: s.mealsDone, workoutDone: s.workoutDone,
     lazyMode: s.lazyMode, skincare: s.skincare, nightRoutine: s.nightRoutine, groceries: s.groceries,
+    waterIntake: s.waterIntake, lazySelections: s.lazySelections,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -83,6 +84,8 @@ function domainToState(d: DailyRecordDomain): Partial<TrackerState> {
   return {
     date: d.date, checklist: d.checklist, mealsDone: d.mealsDone, workoutDone: d.workoutDone,
     lazyMode: d.lazyMode, skincare: d.skincare, nightRoutine: d.nightRoutine, groceries: d.groceries,
+    waterIntake: d.waterIntake ?? { amount: 0, target: 3000 },
+    lazySelections: d.lazySelections ?? {},
   };
 }
 

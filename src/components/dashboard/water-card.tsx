@@ -13,6 +13,12 @@ const entrance: Variants = {
   },
 };
 
+const quickAdds = [
+  { label: "+250 mL", amount: 250 },
+  { label: "+500 mL", amount: 500 },
+  { label: "+1 L", amount: 1000 },
+];
+
 export function WaterCard() {
   const { waterIntake, addWater } = useTracker();
 
@@ -35,16 +41,9 @@ export function WaterCard() {
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
             <span className="text-base">💧</span>
-            <span className="text-xs font-medium text-muted-foreground">
-              Water
-            </span>
+            <span className="text-xs font-medium text-muted-foreground">Water</span>
           </div>
-          <span
-            className={cn(
-              "text-xs font-semibold tabular-nums",
-              done ? "text-accent-sky" : "text-foreground"
-            )}
-          >
+          <span className={cn("text-xs font-semibold tabular-nums", done ? "text-accent-sky" : "text-foreground")}>
             {(amount / 1000).toFixed(1)}L / {(target / 1000).toFixed(1)}L
           </span>
         </div>
@@ -61,26 +60,19 @@ export function WaterCard() {
 
         {/* Quick-add buttons */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => addWater(250)}
-            className={cn(
-              "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
-              "bg-accent-sky/10 text-accent-sky active:bg-accent-sky/20"
-            )}
-          >
-            +250 mL
-          </button>
-          <button
-            type="button"
-            onClick={() => addWater(500)}
-            className={cn(
-              "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
-              "bg-accent-sky/10 text-accent-sky active:bg-accent-sky/20"
-            )}
-          >
-            +500 mL
-          </button>
+          {quickAdds.map((qa) => (
+            <button
+              key={qa.amount}
+              type="button"
+              onClick={() => addWater(qa.amount)}
+              className={cn(
+                "rounded-full px-3 py-1 text-[11px] font-medium transition-colors",
+                "bg-accent-sky/10 text-accent-sky active:bg-accent-sky/20"
+              )}
+            >
+              {qa.label}
+            </button>
+          ))}
         </div>
       </motion.div>
     </div>

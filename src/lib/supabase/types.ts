@@ -18,6 +18,8 @@ export interface DbDailyRecord {
   skincare: unknown;
   night_routine: unknown;
   groceries: unknown;
+  water_intake: unknown; // JSONB { amount, target }
+  lazy_selections: unknown; // JSONB { [category]: index | null }
   created_at: string;
   updated_at: string;
 }

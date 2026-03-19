@@ -1,6 +1,6 @@
 // Maps between Supabase DB rows and domain models.
 
-import type { AppSettings, ChecklistItem, GroceryCategory, MealsDoneMap, NightRoutineItem, SkincareRoutine, SectionId } from "@/types";
+import type { AppSettings, ChecklistItem, GroceryCategory, MealsDoneMap, NightRoutineItem, SkincareRoutine, SectionId, LazySelections, WaterIntake } from "@/types";
 import type { DbDailyRecord, DbAppPreferences, DbBehaviorMemory, DbMoodCheckin } from "./types";
 import type { FavoriteData } from "@/lib/personalization";
 import type { RhythmData } from "@/lib/behavior";
@@ -17,6 +17,8 @@ export interface DailyRecordDomain {
   skincare: SkincareRoutine[];
   nightRoutine: NightRoutineItem[];
   groceries: GroceryCategory[];
+  waterIntake: WaterIntake;
+  lazySelections: LazySelections;
   updatedAt: string;
 }
 
@@ -30,6 +32,8 @@ export function dbToDailyRecord(row: DbDailyRecord): DailyRecordDomain {
     skincare: row.skincare as SkincareRoutine[],
     nightRoutine: row.night_routine as NightRoutineItem[],
     groceries: row.groceries as GroceryCategory[],
+    waterIntake: (row.water_intake as WaterIntake) ?? { amount: 0, target: 3000 },
+    lazySelections: (row.lazy_selections as LazySelections) ?? {},
     updatedAt: row.updated_at,
   };
 }
@@ -48,6 +52,8 @@ export function dailyRecordToDb(
     skincare: record.skincare as unknown,
     night_routine: record.nightRoutine as unknown,
     groceries: record.groceries as unknown,
+    water_intake: record.waterIntake as unknown,
+    lazy_selections: record.lazySelections as unknown,
   };
 }
 
