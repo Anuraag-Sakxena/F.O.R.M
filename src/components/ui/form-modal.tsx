@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 
@@ -16,6 +17,21 @@ interface FormModalProps {
 export function FormModal({
   open, onClose, title, children, onSubmit, submitLabel = "Save", submitDisabled,
 }: FormModalProps) {
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.pointerEvents = "";
+    };
+  }, []);
+
+  const handleSubmit = () => {
+    if (onSubmit) {
+      onSubmit();
+      // Refresh after save to guarantee clean scroll/overlay state
+      setTimeout(() => window.location.reload(), 120);
+    }
+  };
+
   return (
     <AnimatePresence>
       {open && (
@@ -41,7 +57,6 @@ export function FormModal({
                 <div className="h-1 w-8 rounded-full bg-border" />
               </div>
 
-              {/* Header */}
               <div className="flex items-center justify-between px-5 pb-3">
                 <h3 className="text-base font-semibold text-foreground">{title}</h3>
                 <button type="button" onClick={onClose} className="p-1 text-muted-foreground rounded-full active:bg-muted">
@@ -49,17 +64,15 @@ export function FormModal({
                 </button>
               </div>
 
-              {/* Body */}
               <div className="px-5 pb-4 max-h-[60dvh] overflow-y-auto">
                 {children}
               </div>
 
-              {/* Submit */}
               {onSubmit && (
                 <div className="px-5 pb-[calc(1rem+env(safe-area-inset-bottom))]">
                   <button
                     type="button"
-                    onClick={onSubmit}
+                    onClick={handleSubmit}
                     disabled={submitDisabled}
                     className="w-full rounded-xl bg-primary text-primary-foreground py-3 text-sm font-medium disabled:opacity-40 active:scale-[0.98] transition-transform"
                   >
@@ -75,7 +88,6 @@ export function FormModal({
   );
 }
 
-// Reusable form input
 export function FormInput({
   label, value, onChange, placeholder, multiline,
 }: {

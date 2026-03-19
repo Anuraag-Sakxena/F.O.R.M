@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
 interface BottomSheetProps {
@@ -25,6 +26,14 @@ export function BottomSheet({
   title,
   children,
 }: BottomSheetProps) {
+  // Safety: ensure body scroll is never stuck after unmount
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.pointerEvents = "";
+    };
+  }, []);
+
   return (
     <AnimatePresence>
       {open && (

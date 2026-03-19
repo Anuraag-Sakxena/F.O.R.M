@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export interface ActionSheetOption {
@@ -17,6 +18,32 @@ interface ActionSheetProps {
 }
 
 export function ActionSheet({ open, onClose, title, options }: ActionSheetProps) {
+  const pendingAction = useRef<(() => void) | null>(null);
+
+  const handleOption = useCallback((action: () => void) => {
+    pendingAction.current = action;
+    onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open && pendingAction.current) {
+      const action = pendingAction.current;
+      pendingAction.current = null;
+      // Run the action then refresh to guarantee clean state
+      setTimeout(() => {
+        action();
+        window.location.reload();
+      }, 100);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    return () => {
+      document.body.style.overflow = "";
+      document.body.style.pointerEvents = "";
+    };
+  }, []);
+
   return (
     <AnimatePresence>
       {open && (
@@ -52,7 +79,7 @@ export function ActionSheet({ open, onClose, title, options }: ActionSheetProps)
                   <button
                     key={i}
                     type="button"
-                    onClick={() => { opt.onPress(); onClose(); }}
+                    onClick={() => handleOption(opt.onPress)}
                     className={`flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-sm font-medium transition-colors active:bg-muted ${
                       opt.destructive ? "text-danger" : "text-foreground"
                     }`}
