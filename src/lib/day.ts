@@ -7,7 +7,11 @@ export function getTrackerDate(now: Date = new Date()): string {
   if (adjusted.getHours() < DAY_START_HOUR) {
     adjusted.setDate(adjusted.getDate() - 1);
   }
-  return adjusted.toISOString().split("T")[0];
+  // Use local date parts — NOT toISOString() which converts to UTC
+  const y = adjusted.getFullYear();
+  const m = String(adjusted.getMonth() + 1).padStart(2, "0");
+  const d = String(adjusted.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 export function getDayPhase(now: Date = new Date()): DayPhase {
