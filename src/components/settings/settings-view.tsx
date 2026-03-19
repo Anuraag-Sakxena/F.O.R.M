@@ -159,7 +159,7 @@ export function SettingsView() {
         <div className="rounded-2xl bg-card border border-border/60 shadow-xs p-5 text-center">
           <p className="text-base font-bold text-foreground tracking-tight">F.O.R.M.</p>
           <p className="text-[11px] text-muted-foreground mt-1">Focus. Optimize. Repeat. Master.</p>
-          <p className="text-[10px] text-muted-foreground/40 mt-3">v5.0.0 · Made with care</p>
+          <p className="text-[10px] text-muted-foreground/40 mt-3">v1 · Made with Love for my Pixie</p>
         </div>
       </div>
     </AnimatedPage>
