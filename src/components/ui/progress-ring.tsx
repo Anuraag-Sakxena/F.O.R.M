@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
@@ -18,13 +19,12 @@ export function ProgressRing({
 }: ProgressRingProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
-  const isComplete = percent === 100;
+  const isComplete = percent >= 100;
 
   return (
     <div
       className={cn(
         "relative inline-flex items-center justify-center",
-        isComplete && "drop-shadow-[0_0_12px_var(--color-primary)]",
         className
       )}
       style={{ width: size, height: size }}
@@ -65,10 +65,26 @@ export function ProgressRing({
         />
       </svg>
 
-      {/* Center text */}
-      <span className="absolute text-lg font-bold text-foreground">
-        {Math.round(percent)}%
-      </span>
+      {/* Center: number for <100%, verified badge for 100% */}
+      {isComplete ? (
+        <motion.div
+          className="absolute"
+          initial={{ scale: 0 }}
+          animate={{ scale: 1 }}
+          transition={{ type: "spring", stiffness: 400, damping: 20, delay: 0.3 }}
+        >
+          <Image
+            src="/yellow-verified-sign-and-tick-18751.svg"
+            alt="Complete"
+            width={Math.round(size * 0.45)}
+            height={Math.round(size * 0.45)}
+          />
+        </motion.div>
+      ) : (
+        <span className="absolute text-lg font-bold text-foreground">
+          {Math.round(percent)}%
+        </span>
+      )}
     </div>
   );
 }
