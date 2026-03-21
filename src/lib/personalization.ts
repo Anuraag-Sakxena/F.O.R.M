@@ -16,7 +16,7 @@ interface TileDef {
 const BASE_TILES: TileDef[] = [
   { id: "checklist", label: "Checklist", emoji: "✅", href: "/checklist", bgClass: "bg-accent-mint-soft" },
   { id: "meals", label: "Meals", emoji: "🍽️", href: "/meals", bgClass: "bg-accent-peach-soft" },
-  { id: "workout", label: "Workout", emoji: "💪", href: "/workout", bgClass: "bg-accent-sky-soft" },
+  { id: "workout", label: "Workout", emoji: "🏋🏻", href: "/workout", bgClass: "bg-accent-sky-soft" },
   { id: "skincare", label: "Skincare", emoji: "✨", href: "/skincare", bgClass: "bg-accent-lavender-soft" },
   { id: "groceries", label: "Groceries", emoji: "🛒", href: "/groceries", bgClass: "bg-accent-rose-soft" },
   { id: "recipes", label: "Recipes", emoji: "📖", href: "/recipes", bgClass: "bg-accent-amber-soft" },
