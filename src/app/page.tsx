@@ -76,48 +76,49 @@ export default function HomePage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          {/* Top row: greeting + momentum */}
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <h1 className="text-[22px] font-semibold text-foreground tracking-tight">
+          <div className="flex items-start justify-between gap-4">
+            {/* Left: all text content */}
+            <div className="flex-1 min-w-0">
+              {/* Greeting */}
+              <h1 className="text-[22px] font-semibold text-foreground tracking-tight leading-tight">
                 {greeting}, Pixie{t.settings.showEmojis && <span className="ml-1">{phaseEmoji[t.dayPhase]}</span>}
               </h1>
               <p className="text-[11px] text-muted-foreground mt-0.5">{displayDate}</p>
-            </div>
-            {t.currentStreak >= 2 && (
-              <span className={cn("rounded-full px-2.5 py-1 text-[10px] font-bold text-white bg-gradient-to-r", getMomentumColor(t.momentumLevel))}>
-                {getMomentumLabel(t.momentumLevel)} · {t.currentStreak}d
-              </span>
-            )}
-          </div>
 
-          {/* Flow score row */}
-          <div className="flex items-center gap-4">
-            <div className="relative shrink-0" style={{ width: 72, height: 72 }}>
-              <svg width={72} height={72} viewBox="0 0 72 72" className="-rotate-90">
-                <circle cx={36} cy={36} r={30} fill="none" stroke="currentColor" strokeWidth={5} className="text-muted" />
+              {/* Flow state + message */}
+              <div className="mt-2.5 space-y-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-semibold text-primary">{flowLabel}</span>
+                  {flowEmoji && <span className="text-xs">{flowEmoji}</span>}
+                  {t.currentStreak >= 2 && (
+                    <span className={cn("rounded-full px-2 py-0.5 text-[9px] font-bold text-white bg-gradient-to-r ml-1", getMomentumColor(t.momentumLevel))}>
+                      {getMomentumLabel(t.momentumLevel)} · {t.currentStreak}d
+                    </span>
+                  )}
+                </div>
+                <p className="text-[13px] leading-relaxed text-muted-foreground max-w-[240px]">{t.heroMessage}</p>
+                {t.closureMessage && <p className="text-[11px] text-muted-foreground/50 italic">{t.closureMessage}</p>}
+              </div>
+            </div>
+
+            {/* Right: Flow Score Ring */}
+            <div className="relative shrink-0 mt-1" style={{ width: 80, height: 80 }}>
+              <svg width={80} height={80} viewBox="0 0 80 80" className="-rotate-90">
+                <circle cx={40} cy={40} r={34} fill="none" stroke="currentColor" strokeWidth={5} className="text-muted" />
                 <motion.circle
-                  cx={36} cy={36} r={30} fill="none" stroke="currentColor" strokeWidth={5} strokeLinecap="round"
-                  className="text-primary" strokeDasharray={2 * Math.PI * 30}
-                  animate={{ strokeDashoffset: 2 * Math.PI * 30 * (1 - Math.min(t.flowScore, 100) / 100) }}
+                  cx={40} cy={40} r={34} fill="none" stroke="currentColor" strokeWidth={5} strokeLinecap="round"
+                  className="text-primary" strokeDasharray={2 * Math.PI * 34}
+                  animate={{ strokeDashoffset: 2 * Math.PI * 34 * (1 - Math.min(t.flowScore, 100) / 100) }}
                   transition={{ duration: 0.8, ease: "easeOut" }}
                 />
               </svg>
               {isComplete ? (
                 <motion.div className="absolute inset-0 flex items-center justify-center" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 400, damping: 20, delay: 0.3 }}>
-                  <Image src="/yellow-verified-sign-and-tick-18751.svg" alt="Complete" width={32} height={32} />
+                  <Image src="/yellow-verified-sign-and-tick-18751.svg" alt="Complete" width={36} height={36} />
                 </motion.div>
               ) : (
-                <span className="absolute inset-0 flex items-center justify-center text-base font-bold text-foreground">{t.flowScore}%</span>
+                <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-foreground">{t.flowScore}%</span>
               )}
-            </div>
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center gap-1.5">
-                <span className="text-xs font-semibold text-primary">{flowLabel}</span>
-                {flowEmoji && <span className="text-xs">{flowEmoji}</span>}
-              </div>
-              <p className="text-[13px] leading-relaxed text-muted-foreground">{t.heroMessage}</p>
-              {t.closureMessage && <p className="text-[11px] text-muted-foreground/60 italic">{t.closureMessage}</p>}
             </div>
           </div>
         </motion.section>
